@@ -6,30 +6,42 @@ public class GasStation {
 
     public static final int INITIAL_GAS_VOLUME = 50000;
     public static final int GAS_PRICE = 50;
-    public static final int PUMPS_COUNT = 3;
-    public static final int BUYERS_COUNT = 50;
+    public static final int PUMPS_COUNT = 5;
+    public static final int BUYERS_COUNT = 200;
     public static final int INITIAL_BUYER_WEALTH = 5000;
 
     private int gas_count;
     public List<Pump> pumps = new LinkedList<>();
-    public int last_vacant_pump;
 
 
     public GasStation(int gas_count) {
         this.gas_count = gas_count;
         for (int i = 0; i < PUMPS_COUNT; i++) {
-            Pump p = new Pump(this, i);
+            Pump p = new Pump(this);
             pumps.add(p);
         }
+    }
+
+    public Pump getVacantPump() /*throws Exception*/ {
+        int i = 0;
+        for (Pump p : pumps) {
+            if (p.is_vacant)
+                return pumps.get(i);
+            i++;
+        }
+        return null;
+        //throw new Exception("No vacant pumps!");
     }
 
     static class Cashier implements Runnable {
         final private GasStation gas_station;
         private int money = 0;
         public List<Buyer> buyers = new LinkedList<>();
+        final public Object out_of_buyers_monitor;
 
         public Cashier(GasStation gas_station) {
             this.gas_station = gas_station;
+            this.out_of_buyers_monitor = new Object();
             for (int i = 0; i < BUYERS_COUNT; i++) {
                 Buyer b = new Buyer();
                 buyers.add(b);
@@ -43,19 +55,35 @@ public class GasStation {
         public void serveCustomer(Buyer buyer, Pump pump, int gas_count) throws Exception {
             money += buyer.payForGas(gas_count);
             pump.current_buyer = buyer;
-            pump.is_ready = true;
+            pump.gas_needed = gas_count;
+            pump.is_vacant = false;
         }
 
         @Override
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    synchronized (gas_station) {
-                        gas_station.wait();
+                    if (buyers.isEmpty()) {
+                        synchronized (out_of_buyers_monitor) {
+                            out_of_buyers_monitor.notify();
+                        }
+                        return;
                     }
                     Random r = new Random();
-                    serveCustomer(buyers.remove(0), gas_station.pumps.get(gas_station.last_vacant_pump),
-                            r.nextInt(50)); //TODO initialization pumps by first buyers
+
+                    synchronized (gas_station) {
+                        if (gas_station.getVacantPump() == null) {
+                            System.out.println("Waiting for vacant pumps");
+                            gas_station.wait();
+                        }
+                        Pump pump = gas_station.getVacantPump();
+                        serveCustomer(buyers.remove(0), pump, r.nextInt(50));
+                        System.out.println((BUYERS_COUNT - buyers.size()) +
+                                "th customer served and sent to pump № " + (gas_station.pumps.indexOf(pump) + 1));
+                        synchronized (pump.vacant_monitor) {
+                            pump.vacant_monitor.notify();  //Notify that ready
+                        }
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -86,14 +114,17 @@ public class GasStation {
 
     static class Pump implements Runnable {
         final private GasStation gas_station;
-        final private int number;
         private Buyer current_buyer;
-        private boolean is_ready = false;
+        public boolean is_vacant = true;
         private int gas_needed;
+        private int customers_served;
+        final private Object vacant_monitor;
 
-        public Pump(GasStation gas_station, int number) {
+
+        public Pump(GasStation gas_station) {
             this.gas_station = gas_station;
-            this.number = number;
+            this.customers_served = 0;
+            this.vacant_monitor = new Object();
         }
 
         private void dispenseGas() throws Exception {
@@ -101,21 +132,31 @@ public class GasStation {
                 if (gas_station.gas_count >= gas_needed) {
                     gas_station.gas_count -= gas_needed;
                     current_buyer.gas_count += gas_needed;
-                    gas_station.last_vacant_pump = number;
+                    Thread.sleep(50);
                     gas_station.notify();
                 } else throw new Exception("Pump isn't ready or not enough gas!");
             }
-            is_ready = false;
+            is_vacant = true;
             current_buyer = null;
+            customers_served++;
             gas_needed = 0;
         }
 
         @Override
         public void run() {
-            while (!Thread.currentThread().isInterrupted() && this.is_ready) {
+            while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    this.dispenseGas();
-                } catch (Exception e) {
+                    System.out.println("Waiting for being ready " + Thread.currentThread().getName());
+                    synchronized (vacant_monitor) {
+                        vacant_monitor.wait();
+                    }
+                    System.out.println("                        Began dispensing " + Thread.currentThread().getName());
+                    dispenseGas();
+                    System.out.println("                        Dispensing ended " + Thread.currentThread().getName());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -127,27 +168,35 @@ public class GasStation {
 
         Cashier cashier = new Cashier(gas_station);
         Thread t_cashier = new Thread(cashier, "Cashier");
-        t_cashier.start(); //waiting for vacant pumps
-
         List<Thread> threads = new LinkedList<>();
-        int index = 0;
+        int index = 1;
         for (Pump p : gas_station.pumps) {
-            Thread t_pump = new Thread(p, "" + index++);
+            Thread t_pump = new Thread(p, "Pump №" + index++);
             threads.add(t_pump);
             t_pump.start(); //waiting to be ready (activated by Cashier)
         }
 
-        for (Thread t: threads) {
-            t.join();
+        t_cashier.start(); //waiting for vacant pumps
+
+        synchronized (cashier.out_of_buyers_monitor) {
+            cashier.out_of_buyers_monitor.wait();
         }
 
+        t_cashier.interrupt();
+        for (Thread t : threads) {
+            t.interrupt();
+        }
 
         System.out.println("Gas station capacity: " + INITIAL_GAS_VOLUME);
         System.out.println("Gas station gas left: " + gas_station.gas_count);
         int total_gas_sold = 0;
-        for (Buyer b: cashier.buyers)
-            total_gas_sold+=b.getGas_count();
+        for (Buyer b : cashier.buyers)
+            total_gas_sold += b.getGas_count();
         System.out.println("Total gas sold: " + total_gas_sold);
+
+        int i = 1;
+        for (Pump p : gas_station.pumps)
+            System.out.println("Pump №" + i++ + " served: " + p.customers_served);
 
         //Tests
         if (gas_station.gas_count + total_gas_sold == INITIAL_GAS_VOLUME)
