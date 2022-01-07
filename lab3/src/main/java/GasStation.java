@@ -6,8 +6,8 @@ public class GasStation {
 
     public static final int INITIAL_GAS_VOLUME = 50000;
     public static final int GAS_PRICE = 50;
-    public static final int PUMPS_COUNT = 5;
-    public static final int BUYERS_COUNT = 200;
+    public static final int PUMPS_COUNT = 3;
+    public static final int BUYERS_COUNT = 100;
     public static final int INITIAL_BUYER_WEALTH = 5000;
 
     private int gas_count;
@@ -67,6 +67,7 @@ public class GasStation {
                         synchronized (out_of_buyers_monitor) {
                             out_of_buyers_monitor.notify();
                         }
+                        System.out.println("Out of buyers!");
                         return;
                     }
                     Random r = new Random();
@@ -76,14 +77,18 @@ public class GasStation {
                             System.out.println("Waiting for vacant pumps");
                             gas_station.wait();
                         }
-                        Pump pump = gas_station.getVacantPump();
-                        serveCustomer(buyers.remove(0), pump, r.nextInt(50));
-                        System.out.println((BUYERS_COUNT - buyers.size()) +
-                                "th customer served and sent to pump № " + (gas_station.pumps.indexOf(pump) + 1));
-                        synchronized (pump.vacant_monitor) {
-                            pump.vacant_monitor.notify();  //Notify that ready
-                        }
                     }
+                    Pump pump;
+                    synchronized (gas_station) {
+                        pump = gas_station.getVacantPump();
+                        serveCustomer(buyers.remove(0), pump, r.nextInt(50));
+                    }
+                    System.out.println((BUYERS_COUNT - buyers.size()) +
+                            "th customer served and sent to pump № " + (gas_station.pumps.indexOf(pump) + 1));
+                    synchronized (pump.vacant_monitor) {
+                        pump.vacant_monitor.notify();  //Notify that ready
+                    }
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -92,14 +97,10 @@ public class GasStation {
     }
 
     static class Buyer {
-        private int gas_count = 0;
+        volatile private int gas_count = 0;
         private int money = INITIAL_BUYER_WEALTH;
 
         public Buyer() {
-        }
-
-        public int getGas_count() {
-            return gas_count;
         }
 
         public int payForGas(int gas_count) throws Exception {
@@ -132,11 +133,9 @@ public class GasStation {
                 if (gas_station.gas_count >= gas_needed) {
                     gas_station.gas_count -= gas_needed;
                     current_buyer.gas_count += gas_needed;
-                    Thread.sleep(50);
-                    gas_station.notify();
+                    Thread.sleep(5);
                 } else throw new Exception("Pump isn't ready or not enough gas!");
             }
-            is_vacant = true;
             current_buyer = null;
             customers_served++;
             gas_needed = 0;
@@ -146,17 +145,22 @@ public class GasStation {
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    System.out.println("Waiting for being ready " + Thread.currentThread().getName());
+                        synchronized (gas_station) {
+                            is_vacant = true;
+                            System.out.println("Notify for being vacant " + Thread.currentThread().getName());
+                            gas_station.notify();
+                        }
                     synchronized (vacant_monitor) {
+                        System.out.println("Waiting for being ready " + Thread.currentThread().getName());
                         vacant_monitor.wait();
+                        is_vacant = false;
                     }
                     System.out.println("                        Began dispensing " + Thread.currentThread().getName());
                     dispenseGas();
                     System.out.println("                        Dispensing ended " + Thread.currentThread().getName());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -182,23 +186,29 @@ public class GasStation {
             cashier.out_of_buyers_monitor.wait();
         }
 
+        //waiting for ending of each thread
+        for (int i = 0; i < threads.size(); i++) {
+            if (threads.listIterator(i).next().getState() != Thread.State.WAITING)
+                i = 0;
+        }
+
+        //terminating threads
         t_cashier.interrupt();
         for (Thread t : threads) {
             t.interrupt();
         }
 
+
         System.out.println("Gas station capacity: " + INITIAL_GAS_VOLUME);
         System.out.println("Gas station gas left: " + gas_station.gas_count);
-        int total_gas_sold = 0;
-        for (Buyer b : cashier.buyers)
-            total_gas_sold += b.getGas_count();
+        int total_gas_sold = cashier.getMoney() / GAS_PRICE;
         System.out.println("Total gas sold: " + total_gas_sold);
 
         int i = 1;
         for (Pump p : gas_station.pumps)
             System.out.println("Pump №" + i++ + " served: " + p.customers_served);
 
-        //Tests
+        //tests
         if (gas_station.gas_count + total_gas_sold == INITIAL_GAS_VOLUME)
             System.out.println("Successful!");
         else
