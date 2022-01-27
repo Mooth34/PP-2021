@@ -1,16 +1,13 @@
+package ru.spbstu.telematics.lab2;
+
 import org.apache.commons.collections4.Bag;
-import org.apache.commons.collections4.bag.HashBag;
 import org.apache.commons.collections4.set.ListOrderedSet;
 
 import java.lang.reflect.Array;
-import java.util.Collection;
-import java.util.NoSuchElementException;
-import java.util.ListIterator;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 
 
-public class myBag<E> implements Bag<E> {
+public class MyBag<E> implements Bag<E> {
     private int size;
     private Node<E> head;
 
@@ -157,19 +154,29 @@ public class myBag<E> implements Bag<E> {
         }
     }
 
-    public myBag() {
+    public MyBag() {
         head = null;
         this.size = 0;
     }
 
+    public MyBag(Collection<? extends E> c) {
+        this();
+        addAll(c);
+    }
+
     @Override
     public int getCount(Object o) {
-        return 0;
+        int count = 0;
+        for (E e : this)
+            if(e.equals(o))
+                count++;
+        return count;
     }
 
     @Override
     public boolean add(E e) {
         head = new Node<E>(e, head);
+        size++;
         return true;
     }
 
@@ -177,6 +184,7 @@ public class myBag<E> implements Bag<E> {
     public boolean add(E e, int i) {
         for (int j = 0; j < i; j++)
             head = new Node<E>(e, head);
+        size+=i;
         return true;
     }
 
@@ -224,6 +232,8 @@ public class myBag<E> implements Bag<E> {
 
     @Override
     public boolean contains(Object o) {
+        if (isEmpty())
+            return false;
         for (E e : this.uniqueSet())
             if (e.equals(o)) return true;
         return false;
@@ -310,11 +320,19 @@ public class myBag<E> implements Bag<E> {
         return a;
     }
 
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        Set<E> set = uniqueSet();
+        for (E e : set)
+            sb.append(getCount(e) + ":" + e + ",");
+        int len = sb.toString().length();
+        sb.delete(len-1, len);
+        sb.append(']');
+        return sb.toString();
+    }
 
     public static void main(String[] args) {
 
-        myBag<Integer> bag = new myBag<>();
-        HashBag<Integer> libBag = new HashBag<>();
-        libBag.remove(25, 2);
     }
 }

@@ -27,6 +27,6 @@
         </dependency>
     </dependencies>
     <build>
-        <defaultGoal>compile</defaultGoal>
+        <defaultGoal>debug</defaultGoal>
     </build>
 </project>
