@@ -4,7 +4,11 @@ import org.apache.commons.collections4.Bag;
 import org.apache.commons.collections4.set.ListOrderedSet;
 
 import java.lang.reflect.Array;
-import java.util.*;
+import java.util.Collection;
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.Iterator;
 
 
 public class MyBag<E> implements Bag<E> {
@@ -81,12 +85,12 @@ public class MyBag<E> implements Bag<E> {
         size++;
     }
 
-    private class myIterator implements ListIterator<E> {
+    private class MyIterator implements ListIterator<E> {
         private Node<E> next;
         private Node<E> lastReturned;
         private int nextIndex;
 
-        myIterator() {
+        MyIterator() {
             next = head;
             nextIndex = 0;
         }
@@ -306,7 +310,7 @@ public class MyBag<E> implements Bag<E> {
 
         @Override
         public ListIterator<E> iterator () {
-            return new myIterator();
+            return new MyIterator();
         }
 
         @Override
