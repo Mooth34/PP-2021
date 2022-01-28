@@ -36,12 +36,18 @@ public class MyBag<E> implements Bag<E> {
         E data = node.data;
         if (size == 0) return null;
 
-        Node<E> prev = head;
-        while (prev.next != node && prev.next != null)
-            prev = prev.next;
+        if (head == node)
+            head = node.next;
 
-        prev.next = node.next;
-        node.next = null;
+        else {
+            Node<E> prev = head;
+
+            while (prev.next != node && prev.next != null)
+                prev = prev.next;
+
+            prev.next = node.next;
+            node.next = null;
+        }
 
         node.data = null;
         size--;
@@ -168,7 +174,7 @@ public class MyBag<E> implements Bag<E> {
     public int getCount(Object o) {
         int count = 0;
         for (E e : this)
-            if(e.equals(o))
+            if (e.equals(o))
                 count++;
         return count;
     }
@@ -184,7 +190,7 @@ public class MyBag<E> implements Bag<E> {
     public boolean add(E e, int i) {
         for (int j = 0; j < i; j++)
             head = new Node<E>(e, head);
-        size+=i;
+        size += i;
         return true;
     }
 
@@ -203,7 +209,7 @@ public class MyBag<E> implements Bag<E> {
     @Override
     public boolean remove(Object o, int i) {
         ListIterator<E> it = iterator();
-        while (it.hasNext()) {
+        while (it.hasNext() && i>0) {
             if (it.next().equals(o)) {
                 it.remove();
                 i--;
@@ -244,14 +250,16 @@ public class MyBag<E> implements Bag<E> {
         if (collection.isEmpty())
             return true;
         Iterator<?> it = collection.iterator();
-        for (E e : this)
-            while (it.hasNext()) {
-                if (it.next().equals(e)) {
-                    it.remove();
+        int matches = 0;
+        while (it.hasNext()) {
+            Object obj = it.next();
+            for (E e : this)
+                if (obj.equals(e)) {
+                    matches++;
                     break;
                 }
-            }
-        return collection.isEmpty();
+        }
+        return matches == collection.size();
     }
 
     @Override
@@ -279,60 +287,62 @@ public class MyBag<E> implements Bag<E> {
             clear();
             return true;
         }
-        int res = 0;
-        for (Object o : collection)
-            if (!contains(o)) {
-                remove(o);
-                res++;
+        MyBag<E> other = new MyBag<>();
+        other.addAll((Collection<? extends E>) collection);
+        int count = 0, res = 0;
+        for (E e : uniqueSet()){
+            count = getCount(e) - other.getCount(e);
+            remove(e, count);
+            res+=count;
             }
         return res > 0;
     }
 
-    @Override
-    public void clear() {
-        head = null;
-        size = 0;
+        @Override
+        public void clear () {
+            head = null;
+            size = 0;
+        }
+
+        @Override
+        public ListIterator<E> iterator () {
+            return new myIterator();
+        }
+
+        @Override
+        public Object[] toArray () {
+            Object[] arr = new Object[size];
+            int i = 0;
+            for (E e : this) arr[i++] = e;
+            return arr;
+        }
+
+        @Override
+        public <T > T[]toArray(T[]a){
+            if (a.length < size) {
+                a = (T[]) Array.newInstance(a.getClass().getComponentType(), size);
+            } else if (a.length > size)
+                a[size] = null;
+
+            int i = 0;
+            for (E e : this)
+                a[i++] = (T) e;
+            return a;
+        }
+
+        public String toString () {
+            StringBuilder sb = new StringBuilder();
+            sb.append("[");
+            Set<E> set = uniqueSet();
+            for (E e : set)
+                sb.append(getCount(e) + ":" + e + ",");
+            int len = sb.toString().length();
+            sb.delete(len - 1, len);
+            sb.append(']');
+            return sb.toString();
+        }
+
+        public static void main (String[]args){
+
+        }
     }
-
-    @Override
-    public ListIterator<E> iterator() {
-        return new myIterator();
-    }
-
-    @Override
-    public Object[] toArray() {
-        Object[] arr = new Object[size];
-        int i = 0;
-        for (E e : this) arr[i++] = e;
-        return arr;
-    }
-
-    @Override
-    public <T> T[] toArray(T[] a) {
-        if (a.length < size) {
-            a = (T[]) Array.newInstance(a.getClass().getComponentType(), size);
-        } else if (a.length > size)
-            a[size] = null;
-
-        int i = 0;
-        for (E e : this)
-            a[i++] = (T) e;
-        return a;
-    }
-
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        Set<E> set = uniqueSet();
-        for (E e : set)
-            sb.append(getCount(e) + ":" + e + ",");
-        int len = sb.toString().length();
-        sb.delete(len-1, len);
-        sb.append(']');
-        return sb.toString();
-    }
-
-    public static void main(String[] args) {
-
-    }
-}
