@@ -1,8 +1,8 @@
 
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Iterator;
 import java.util.Vector;
+import java.util.concurrent.FutureTask;
 
 
 import static java.lang.Math.abs;
@@ -21,34 +21,30 @@ public class GradientDescent {
     //отклонение для остановки алгоритма
     static final double STOP_EPS = 1e-6;
     static final double MAX_NUMBER_OF_ITERATIONS = 100000;
+    static final double THREADS = 2;
 
     static int iterations;
 
     static double f(Vector<Double> x) {
-        return 1000 * pow(x.get(0), 2) + pow(x.get(1), 2); //1000 * x^2 + y^2
+        return 1000 * pow(x.get(0), 2) + pow(x.get(1), 2) + pow(x.get(2), 2) + pow(x.get(3), 2); //1000 * x^2 + y^2 + z^2 + k^2
     }
 
     static Vector<Double> GradientF(Vector<Double> vec) {
-        Vector<Double> dVec = new Vector<>(vec), grad = new Vector<>(2);
+        Vector<Double> grad = new Vector<>(vec);
         double delta = GRAD_DELTA;
+        //TODO
         for (int i = 0; i < vec.size(); i++) {
+            Vector<Double> dVec = new Vector<>(vec);
             dVec.set(i, dVec.get(i) + delta);
-            grad.add((f(dVec) - f(vec)) / delta);
-            dVec.clear();
-            dVec.addAll(vec);
+            grad.set(i, (f(dVec) - f(vec)) / delta);
         }
-        //grad.add(20 * vec.get(0));
-        //grad.add(2 * vec.get(1));
         return grad;
     }
 
     //minimizes N-dimensional function f; x0 - start point
     static Vector<Double> compute(Vector<Double> x0) {
         Vector<Double> old = new Vector<>(), grad, cur_x = x0;
-        Iterator<Double> gradIter;
-        double s, lambda = INITIAL_LAMBDA;
-
-
+        double gradNorm, lambda = INITIAL_LAMBDA;
         for (iterations = 1; iterations <= MAX_NUMBER_OF_ITERATIONS; iterations++) {
             //save old value
             old.clear();
@@ -56,25 +52,25 @@ public class GradientDescent {
             //compute gradient
             grad = GradientF(cur_x);
 
-            gradIter = grad.iterator();
-            //вычисляем новое значение
-            for (int i = 0; i < cur_x.size(); i++)
-                cur_x.set(i, cur_x.get(i) - lambda * gradIter.next());
+            gradNorm = 0;
 
-
-            //вычисляем квадрат нормы градиента
-            s = 0;
-            for (Double elem : grad)
-                s += pow(elem, 2);
+            //TODO
+            for (int i = 0; i < cur_x.size(); i++) {
+                //вычисляем новое значение
+                Double gradElem = grad.get(i);
+                cur_x.set(i, cur_x.get(i) - lambda * gradElem);
+                //вычисляем квадрат нормы градиента
+                gradNorm += pow(gradElem, 2);
+            }
 
             //пересчет длины шага
-            while (f(cur_x) > f(old) - EPS * lambda * s) {
+            while (f(cur_x) > f(old) - EPS * lambda * gradNorm) {
                 lambda *= DELTA;
                 cur_x.clear();
                 cur_x.addAll(old);
-                gradIter = grad.iterator();
+                //TODO
                 for (int i = 0; i < cur_x.size(); i++)
-                    cur_x.set(i, cur_x.get(i) - lambda * gradIter.next());
+                    cur_x.set(i, cur_x.get(i) - lambda * grad.get(i));
             }
 
             //условие останова
@@ -87,14 +83,12 @@ public class GradientDescent {
 
     public static void main(String[] args) {
         Vector<Double> x = new Vector<>();
-        Vector<Double> ans = new Vector<>();
+        x.add(-30.);
+        x.add(30.);
+        x.add(0.);
+        x.add(1000.5);
         LocalTime start = LocalTime.now();
-        for (int i = 0; i < 10; i++) {
-            x.clear();
-            x.add(-30.);
-            x.add(30.);
-            ans = compute(x);
-        }
+        Vector<Double> ans = compute(x);
         LocalTime finish = LocalTime.now();
         System.out.printf("Value: %.3f %n", f(ans));
         System.out.println("Point: ");
