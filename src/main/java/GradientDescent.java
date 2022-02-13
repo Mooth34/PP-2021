@@ -1,5 +1,9 @@
+
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Iterator;
 import java.util.Vector;
+
 
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
@@ -11,29 +15,31 @@ public class GradientDescent {
     static final double INITIAL_LAMBDA = 1;
     //дельта дробления шага
     static final double DELTA = 0.95;
+    //дельта вычисления производной
+    static final double GRAD_DELTA = 1e-6;
     static final double EPS = 0.1;
     //отклонение для остановки алгоритма
-    static final double STOP_EPS = 1e-8;
+    static final double STOP_EPS = 1e-6;
     static final double MAX_NUMBER_OF_ITERATIONS = 100000;
 
     static int iterations;
 
     static double f(Vector<Double> x) {
-        return 10 * pow(x.get(0), 2) + pow(x.get(1), 2); //10 * x^2 + y^2
-        //return pow(1-x.get(0), 2) + 100 * pow(x.get(1)-pow(x.get(0), 2), 2); // (1-x^2) + 100*(y-x^2)^2
+        return 1000 * pow(x.get(0), 2) + pow(x.get(1), 2); //1000 * x^2 + y^2
     }
 
-    static Vector<Double> GradientF(Vector<Double> x) {
-        Vector<Double> tmp = new Vector<>(2);
-        //double delta = 0.0001;
-        //for (double elem : x)
-        //    tmp.add(elem + delta);
-        //tmp.add(f(tmp)-f(x)/delta);
-        tmp.add(20 * x.get(0));
-        tmp.add(2 * x.get(1));
-        //tmp.add(2 * x.get(0) * ( 200 * pow(x.get(0), 2) - 200 * x.get(1) - 1) ); // 2x (200x^2 - 200y - 1)
-        //tmp.add(200 * (x.get(1) - pow(x.get(0), 2))); // 200 (y-x^2)
-        return tmp;
+    static Vector<Double> GradientF(Vector<Double> vec) {
+        Vector<Double> dVec = new Vector<>(vec), grad = new Vector<>(2);
+        double delta = GRAD_DELTA;
+        for (int i = 0; i < vec.size(); i++) {
+            dVec.set(i, dVec.get(i) + delta);
+            grad.add((f(dVec) - f(vec)) / delta);
+            dVec.clear();
+            dVec.addAll(vec);
+        }
+        //grad.add(20 * vec.get(0));
+        //grad.add(2 * vec.get(1));
+        return grad;
     }
 
     //minimizes N-dimensional function f; x0 - start point
@@ -81,13 +87,21 @@ public class GradientDescent {
 
     public static void main(String[] args) {
         Vector<Double> x = new Vector<>();
-        x.add(-9.);
-        x.add(-9.);
-        Vector<Double> ans = compute(x);
-        System.out.println("Value: " + f(ans));
+        Vector<Double> ans = new Vector<>();
+        LocalTime start = LocalTime.now();
+        for (int i = 0; i < 10; i++) {
+            x.clear();
+            x.add(-30.);
+            x.add(30.);
+            ans = compute(x);
+        }
+        LocalTime finish = LocalTime.now();
+        System.out.printf("Value: %.3f %n", f(ans));
         System.out.println("Point: ");
         for (Double elem : ans)
-            System.out.println(elem + " ");
+            System.out.printf("%.3f %n", elem);
         System.out.println("Number of iterations:" + iterations);
+
+        System.out.printf("Working time = %d milliseconds%n", ChronoUnit.MILLIS.between(start, finish));
     }
 }
