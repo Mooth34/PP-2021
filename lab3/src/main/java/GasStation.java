@@ -42,10 +42,6 @@ public class GasStation {
         public Cashier(GasStation gas_station) {
             this.gas_station = gas_station;
             this.out_of_buyers_monitor = new Object();
-            for (int i = 0; i < BUYERS_COUNT; i++) {
-                Buyer b = new Buyer();
-                buyers.add(b);
-            }
         }
 
         public int getMoney() {
@@ -170,6 +166,10 @@ public class GasStation {
         GasStation gas_station = new GasStation(INITIAL_GAS_VOLUME);
 
         Cashier cashier = new Cashier(gas_station);
+         for (int i = 0; i < BUYERS_COUNT; i++) {
+                Buyer b = new Buyer();
+                cashier.buyers.add(b);
+            }
         Thread t_cashier = new Thread(cashier, "Cashier");
         List<Thread> threads = new LinkedList<>();
         int index = 1;
