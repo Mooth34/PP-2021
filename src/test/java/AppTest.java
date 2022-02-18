@@ -1,32 +1,23 @@
-package ru.spbstu.telematics.java;
-
-import junit.framework.Test;
 import junit.framework.TestCase;
-import junit.framework.TestSuite;
 import org.junit.Assert;
-
-import java.time.Instant;
 import java.util.Vector;
 
 import static java.lang.Math.pow;
 
-/**
- * Unit test for simple App.
- */
-public class AppTest
-        extends TestCase
+public class AppTest extends TestCase
 {
     public void testApp()
     {
-
-        Vector<Double> x = new Vector<>();
-        for (int i = 0; i < 1000; i++)
-            x.add(i * pow(-1, i));
-        GradientDescent descentMinimizer = new GradientDescent(2);
-        Vector startVector = new Vector(new double[]{2, 2});
-        double expectedF = 0.;
-        Vector res = new Vector(2);
-        descentMinimizer.compute(x);
-        Assert.assertEquals(expectedF, f.f(res), 21e-2);
+        Vector<Double> startVector = new Vector<>();
+        for (int i = 0; i < GradientDescent.DIMENSIONS; i++)
+            startVector.add(10 * i * pow(-1, i)); // -10, 20, -30, 40...
+        double expectedF = 0.; // x^2 + y^2 + z^2 + ...
+        Vector<Double> res = new Vector<>();
+        try {
+            res = GradientDescent.compute(startVector);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        Assert.assertEquals(expectedF, GradientDescent.f(res), 1e-4);
     }
 }

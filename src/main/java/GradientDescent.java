@@ -1,4 +1,3 @@
-
 import java.util.Vector;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
@@ -22,7 +21,7 @@ public class GradientDescent {
     static final double STOP_EPS = 1e-5;
     static final double MAX_NUMBER_OF_ITERATIONS = 100000;
     static final int DIMENSIONS = 1000;
-    static final int THREADS = 4;
+    static final int THREADS = 1;
     static int iterations;
 
     static double f(Vector<Double> x) {
