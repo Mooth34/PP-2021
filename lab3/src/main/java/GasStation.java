@@ -133,7 +133,6 @@ public class GasStation {
                 if (gas_station.gas_count >= gas_needed) {
                     gas_station.gas_count -= gas_needed;
                     current_buyer.gas_count += gas_needed;
-                    Thread.sleep(5);
                 } else throw new Exception("Pump isn't ready or not enough gas!");
             }
             current_buyer = null;
