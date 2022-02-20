@@ -1,18 +1,19 @@
-import java.util.LinkedList;
+ import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
+ import java.util.ListIterator;
+ import java.util.Random;
 
 public class GasStation {
 
     public static final int INITIAL_GAS_VOLUME = 50000;
     public static final int GAS_PRICE = 50;
-    public static final int PUMPS_COUNT = 3;
+    public static final int PUMPS_COUNT = 1;
     public static final int BUYERS_COUNT = 100;
     public static final int INITIAL_BUYER_WEALTH = 5000;
 
     private int gas_count;
     public List<Pump> pumps = new LinkedList<>();
-
+    public Cashier cashier;
 
     public GasStation(int gas_count) {
         this.gas_count = gas_count;
@@ -41,6 +42,7 @@ public class GasStation {
 
         public Cashier(GasStation gas_station) {
             this.gas_station = gas_station;
+            this.gas_station.cashier = this;
             this.out_of_buyers_monitor = new Object();
         }
 
@@ -129,6 +131,7 @@ public class GasStation {
                 if (gas_station.gas_count >= gas_needed) {
                     gas_station.gas_count -= gas_needed;
                     current_buyer.gas_count += gas_needed;
+                    Thread.sleep(0);
                 } else throw new Exception("Pump isn't ready or not enough gas!");
             }
             current_buyer = null;
@@ -153,6 +156,7 @@ public class GasStation {
                     System.out.println("                        Began dispensing " + Thread.currentThread().getName());
                     dispenseGas();
                     System.out.println("                        Dispensing ended " + Thread.currentThread().getName());
+
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (Exception e) {
@@ -166,10 +170,10 @@ public class GasStation {
         GasStation gas_station = new GasStation(INITIAL_GAS_VOLUME);
 
         Cashier cashier = new Cashier(gas_station);
-         for (int i = 0; i < BUYERS_COUNT; i++) {
-                Buyer b = new Buyer();
-                cashier.buyers.add(b);
-            }
+        for (int i = 0; i < BUYERS_COUNT; i++) {
+            Buyer b = new Buyer();
+            cashier.buyers.add(b);
+        }
         Thread t_cashier = new Thread(cashier, "Cashier");
         List<Thread> threads = new LinkedList<>();
         int index = 1;
@@ -186,10 +190,16 @@ public class GasStation {
         }
 
         //waiting for ending of each thread
-        for (int i = 0; i < threads.size(); i++) {
-            if (threads.listIterator(i).next().getState() != Thread.State.WAITING)
-                i = 0;
+        boolean exit = false;
+        while(!exit) {
+            exit = true;
+            for (Thread thread : threads)
+                if (thread.getState() != Thread.State.WAITING) {
+                    exit = false;
+                    break;
+                }
         }
+
 
         //terminating threads
         t_cashier.interrupt();
