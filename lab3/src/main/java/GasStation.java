@@ -1,14 +1,13 @@
  import java.util.LinkedList;
-import java.util.List;
- import java.util.ListIterator;
+ import java.util.List;
  import java.util.Random;
 
 public class GasStation {
 
-    public static final int INITIAL_GAS_VOLUME = 50000;
+    public static final int INITIAL_GAS_VOLUME = 5000000;
     public static final int GAS_PRICE = 50;
     public static final int PUMPS_COUNT = 1;
-    public static final int BUYERS_COUNT = 100;
+    public static final int BUYERS_COUNT = 100000;
     public static final int INITIAL_BUYER_WEALTH = 5000;
 
     private int gas_count;
@@ -118,12 +117,14 @@ public class GasStation {
         private int gas_needed;
         private int customers_served;
         final private Object vacant_monitor;
+        final private Object lock;
 
 
         public Pump(GasStation gas_station) {
             this.gas_station = gas_station;
             this.customers_served = 0;
             this.vacant_monitor = new Object();
+            this.lock = new Object();
         }
 
         private void dispenseGas() throws Exception {
@@ -143,12 +144,13 @@ public class GasStation {
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
+                    synchronized (vacant_monitor) {
                         synchronized (gas_station) {
                             is_vacant = true;
                             System.out.println("Notify for being vacant " + Thread.currentThread().getName());
                             gas_station.notify();
                         }
-                    synchronized (vacant_monitor) {
+
                         System.out.println("Waiting for being ready " + Thread.currentThread().getName());
                         vacant_monitor.wait();
                         is_vacant = false;
@@ -167,64 +169,64 @@ public class GasStation {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        GasStation gas_station = new GasStation(INITIAL_GAS_VOLUME);
+            GasStation gas_station = new GasStation(INITIAL_GAS_VOLUME);
 
-        Cashier cashier = new Cashier(gas_station);
-        for (int i = 0; i < BUYERS_COUNT; i++) {
-            Buyer b = new Buyer();
-            cashier.buyers.add(b);
+            Cashier cashier = new Cashier(gas_station);
+            for (int i = 0; i < BUYERS_COUNT; i++) {
+                Buyer b = new Buyer();
+                cashier.buyers.add(b);
+            }
+            Thread t_cashier = new Thread(cashier, "Cashier");
+            List<Thread> threads = new LinkedList<>();
+            int index = 1;
+            for (Pump p : gas_station.pumps) {
+                Thread t_pump = new Thread(p, "Pump №" + index++);
+                threads.add(t_pump);
+                t_pump.start(); //waiting to be ready (activated by Cashier)
+            }
+
+            t_cashier.start(); //waiting for vacant pumps
+
+            synchronized (cashier.out_of_buyers_monitor) {
+                cashier.out_of_buyers_monitor.wait();
+            }
+
+            //waiting for ending of each thread
+            boolean exit = false;
+            while (!exit) {
+                exit = true;
+                for (Thread thread : threads)
+                    if (thread.getState() != Thread.State.WAITING) {
+                        exit = false;
+                        break;
+                    }
+            }
+
+
+            //terminating threads
+            t_cashier.interrupt();
+            for (Thread t : threads) {
+                t.interrupt();
+            }
+
+
+            System.out.println("Gas station capacity: " + INITIAL_GAS_VOLUME);
+            System.out.println("Gas station gas left: " + gas_station.gas_count);
+            int total_gas_sold = cashier.getMoney() / GAS_PRICE;
+            System.out.println("Total gas sold: " + total_gas_sold);
+
+            int i = 1;
+            for (Pump p : gas_station.pumps)
+                System.out.println("Pump №" + i++ + " served: " + p.customers_served);
+
+            //tests
+            if (gas_station.gas_count + total_gas_sold == INITIAL_GAS_VOLUME)
+                System.out.println("Successful!");
+            else
+                System.out.println("There is any gas leaks!");
+            if (cashier.getMoney() / GAS_PRICE == total_gas_sold)
+                System.out.println("Successful!");
+            else
+                System.out.println("There is any money leaks!");
         }
-        Thread t_cashier = new Thread(cashier, "Cashier");
-        List<Thread> threads = new LinkedList<>();
-        int index = 1;
-        for (Pump p : gas_station.pumps) {
-            Thread t_pump = new Thread(p, "Pump №" + index++);
-            threads.add(t_pump);
-            t_pump.start(); //waiting to be ready (activated by Cashier)
-        }
-
-        t_cashier.start(); //waiting for vacant pumps
-
-        synchronized (cashier.out_of_buyers_monitor) {
-            cashier.out_of_buyers_monitor.wait();
-        }
-
-        //waiting for ending of each thread
-        boolean exit = false;
-        while(!exit) {
-            exit = true;
-            for (Thread thread : threads)
-                if (thread.getState() != Thread.State.WAITING) {
-                    exit = false;
-                    break;
-                }
-        }
-
-
-        //terminating threads
-        t_cashier.interrupt();
-        for (Thread t : threads) {
-            t.interrupt();
-        }
-
-
-        System.out.println("Gas station capacity: " + INITIAL_GAS_VOLUME);
-        System.out.println("Gas station gas left: " + gas_station.gas_count);
-        int total_gas_sold = cashier.getMoney() / GAS_PRICE;
-        System.out.println("Total gas sold: " + total_gas_sold);
-
-        int i = 1;
-        for (Pump p : gas_station.pumps)
-            System.out.println("Pump №" + i++ + " served: " + p.customers_served);
-
-        //tests
-        if (gas_station.gas_count + total_gas_sold == INITIAL_GAS_VOLUME)
-            System.out.println("Successful!");
-        else
-            System.out.println("There is any gas leaks!");
-        if (cashier.getMoney() / GAS_PRICE == total_gas_sold)
-            System.out.println("Successful!");
-        else
-            System.out.println("There is any money leaks!");
     }
-}
