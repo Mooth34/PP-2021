@@ -9,7 +9,7 @@ public class GasStation {
     public static final int PUMPS_COUNT = 3;
     public static final int BUYERS_COUNT = 10;
     public static final int INITIAL_BUYER_WEALTH = 5000;
-    public static int customers_served = 0;
+    public static boolean noMoreBuyers = false;
 
     private int gas_count;
     public List<Pump> pumps = new LinkedList<>();
@@ -61,7 +61,7 @@ public class GasStation {
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    if (buyers.isEmpty()) {
+                    if (buyers.isEmpty() && noMoreBuyers) {
                         synchronized (out_of_buyers_monitor) {
                             out_of_buyers_monitor.notify();
                         }
@@ -183,6 +183,7 @@ public class GasStation {
                             e.printStackTrace();
                         }
                     }
+                    noMoreBuyers = true;
                     Thread.currentThread().interrupt();
                 }
             });
